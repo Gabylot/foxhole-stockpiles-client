@@ -4,37 +4,28 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Windows](https://img.shields.io/badge/platform-windows-blue.svg)](https://www.microsoft.com/windows)
 
-A lightweight desktop client for capturing Foxhole stockpile screenshots and sending them to the [Foxhole Stockpiles Server](https://github.com/xurxogr/foxhole-stockpiles) for automated processing.
+A lightweight desktop client for parsing Foxhole stockpile SAV files and submitting them to an API endpoint.
 
 ## Features
 
-- 🖼️ **Automatic Screenshot Capture**: Capture Foxhole stockpile screenshots with customizable hotkeys
-- 🎯 **Window Detection**: Automatically detects and focuses the Foxhole game window
-- 🚀 **Server Integration**: Seamlessly sends screenshots to the processing server
-- ⚙️ **Configurable**: Easy configuration through INI config file
-- 🖥️ **Windows Native**: Built specifically for Windows with native window management
-- 📦 **Standalone Executable**: Can be built as a single executable file
+- 📂 **SAV File Parsing**: Reads Foxhole `MapData.sav` files using `fs-sav`
+- 📋 **Stockpile Filtering**: Automatically filters reserve stockpiles and public base types
+- 🚀 **API Submission**: Sends parsed stockpiles to a configurable endpoint with `X-API-TOKEN` auth
+- 🖥️ **GUI Configuration**: All settings configurable through the settings window — no manual config editing
+- 🔍 **Auto Detection**: Automatically finds your Foxhole `MapData.sav` file
+- 🌐 **Multi-language**: Supports English, German, Spanish, French, Portuguese, Russian, Turkish, Chinese
 
 ## Requirements
 
 - **Python 3.12 or higher** (for running from source)
 - **Windows 10 or 11**
-- **Foxhole Stockpiles Server** running and accessible (see [foxhole-stockpiles](https://github.com/xurxogr/foxhole-stockpiles))
+- **[fs-sav](https://github.com/Gabylot/foxhole-stockpiles-client)** executable for parsing SAV files
 
 ## Installation
 
-### Option 1: Standalone Executable (Recommended for Users)
-
-1. Download the latest `foxhole-client.exe` from [Releases](https://github.com/xurxogr/foxhole-stockpiles-client/releases)
-2. Place it in a convenient location
-3. Create a `config.ini` file in the same directory (see Configuration section)
-4. Run `foxhole-client.exe`
-
-### Option 2: From Source (For Developers)
-
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/xurxogr/foxhole-stockpiles-client.git
+   git clone https://github.com/Gabylot/foxhole-stockpiles-client.git
    cd foxhole-stockpiles-client
    ```
 
@@ -46,208 +37,75 @@ A lightweight desktop client for capturing Foxhole stockpile screenshots and sen
 
 3. **Install dependencies**:
    ```bash
-   # For regular use
-   pip install -e .[windows]
-
-   # For development
-   pip install -e .[dev,windows]
+   pip install -e .
    ```
-
-4. **Install pre-commit hooks** (optional, for development):
-   ```bash
-   pre-commit install
-   ```
-
-## Configuration
-
-The client is configured using a `config.ini` file located in the `foxhole_stockpiles/` directory (when running from source) or in the same directory as the executable.
-
-### Basic Configuration
-
-Create a `config.ini` file with the following settings:
-
-```ini
-[KEYBIND]
-key = F9
-
-[SERVER]
-url = https://backend.com/fs/ocr/scan_image
-token = your-bearer-token-here
-```
-
-### Configuration Options
-
-#### [KEYBIND] Section
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `key` | Hotkey to trigger screenshot capture | None (required) |
-
-#### [SERVER] Section
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `url` | URL of the Foxhole Stockpiles Server OCR endpoint | `https://backend.com/fs/ocr/scan_image` |
-| `token` | Bearer token for server authentication | None (required) |
-
-### Example Configuration
-
-```ini
-[KEYBIND]
-key = F8
-
-[SERVER]
-url = https://foxhole-server.example.com/ocr/scan_image
-token = my-secret-token-12345
-```
 
 ## Usage
 
-### Running the Client
+Run the application from the project root:
 
-**From executable**:
-```bash
-foxhole-client.exe
-```
-
-**From source**:
 ```bash
 python -m foxhole_stockpiles.main
 ```
 
-Or after installing in editable mode:
-```bash
-foxhole-client
-```
+### First Setup
 
-### Using the Client
+1. The "Process SAV" button starts greyed out
+2. Go to **Settings → Configure**
+3. Fill in the required fields in the **SAV Watcher** tab:
+   - **SAV File Path** — click "Auto Detect" to find your `MapData.sav`, or "Browse" to select it manually
+   - **fs-sav Executable** — path to the `fs-sav.exe` parser
+   - **Endpoint URL** — the API endpoint to submit stockpiles to
+   - **API Token** — the `X-API-TOKEN` for authentication
+4. Click **Save** — the button becomes enabled
+5. Click **Process SAV** to parse and submit all stockpiles
 
-1. **Start the client**: Launch the application
-2. **Play Foxhole**: The client runs in the background
-3. **Open a stockpile**: View any stockpile in-game
-4. **Press the hotkey**: Default is `F9` (configurable)
-5. **Screenshot is captured**: Automatically sent to the server for processing
-6. **View results**: Check the server logs/webhooks for processed data
+### Settings Tabs
 
-### Hotkey Usage
-
-- The client listens for the configured hotkey (default: `F9`)
-- When pressed, it:
-  1. Detects the Foxhole game window
-  2. Brings it to focus (if needed)
-  3. Captures a screenshot
-  4. Sends it to the server for processing
-  5. Shows a notification with the result
-
-## Building Standalone Executable
-
-To create a standalone executable:
-
-```bash
-# Build executable using the build script
-build.cmd
-```
-
-Note: PyInstaller is included in the dev dependencies. The build script will package the application with all necessary files.
-
-The executable will be created in the `dist/` directory.
+| Tab | Description |
+|-----|-------------|
+| **SAV Watcher** | Configure SAV file path, fs-sav executable, endpoint, and API token |
+| **Language** | Select your preferred language |
 
 ## Project Structure
 
 ```
 foxhole-stockpiles-client/
 ├── foxhole_stockpiles/
-│   ├── core/              # Core utilities and configuration
-│   ├── models/            # Data models
-│   ├── ui/                # User interface components
-│   ├── main.py            # Application entry point
-│   └── config.ini         # Configuration file (gitignored)
-├── pyproject.toml        # Project configuration
-└── build.cmd             # Build script for executable
+│   ├── core/              # Configuration and settings
+│   ├── i18n/              # Translation files
+│   ├── ui/                # User interface (main window + settings)
+│   ├── __init__.py        # Package metadata
+│   └── main.py            # Application entry point
+├── pyproject.toml         # Project configuration
+└── README.md
 ```
 
-## Development
+## Configuration
 
-### Code Quality
+All configuration is done through the GUI settings window and saved to `config.json` in the project root.
 
-The project uses several tools to maintain code quality:
+### SAV Settings
+
+| Field | Description |
+|-------|-------------|
+| SAV File Path | Path to your Foxhole `MapData.sav` file (auto-detectable) |
+| fs-sav Executable | Path to the `fs-sav.exe` parser binary |
+| Endpoint URL | API endpoint that accepts stockpile JSON via POST |
+| API Token | Token sent as `X-API-TOKEN` header for authentication |
+
+## Building Standalone Executable
 
 ```bash
-# Run linter
-ruff check foxhole_stockpiles/
-
-# Run type checker
-mypy foxhole_stockpiles/
-
-# Format code
-ruff format foxhole_stockpiles/
-
-# Run all pre-commit hooks
-pre-commit run --all-files
+build.cmd
 ```
 
-### Pre-commit Hooks
-
-The project uses pre-commit hooks to ensure code quality:
-
-- Trailing whitespace removal
-- End-of-file fixer
-- YAML syntax checking
-- Large file detection
-- Debug statement detection
-- Ruff linting and formatting
-- MyPy type checking
-
-## Troubleshooting
-
-### Window Detection Issues
-
-If the client can't detect the Foxhole window:
-
-1. Check that Foxhole is running
-2. The client automatically detects windows with "Foxhole" in the title
-3. Ensure the game window title contains "Foxhole"
-
-### Server Connection Issues
-
-If the client can't connect to the server:
-
-1. Verify the server is running and accessible
-2. Check the `url` setting in the `[SERVER]` section of your `config.ini` file
-3. Ensure the `token` setting matches the server configuration
-4. Check firewall settings if using a remote server
-
-### Hotkey Not Working
-
-If the hotkey doesn't respond:
-
-1. Try a different key (avoid keys used by other applications)
-2. Run the client as administrator
-3. Check for conflicting hotkey assignments
-
-## Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+The executable will be created in the `dist/` directory.
 
 ## Related Projects
 
-- [Foxhole Stockpiles Server](https://github.com/xurxogr/foxhole-stockpiles) - The server component for processing screenshots
-- [FIR (Foxhole Item Recognition)](https://github.com/GICodeWarrior/fir) - Original inspiration for the project
+- [foxhole-stockpiles](https://github.com/Gabylot/foxhole-stockpiles-client) - The main project repository
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-If you encounter any issues or have questions:
-
-- Open an issue on [GitHub Issues](https://github.com/xurxogr/foxhole-stockpiles-client/issues)
-- Check the [Troubleshooting](#troubleshooting) section
-- Review the server documentation at [foxhole-stockpiles](https://github.com/xurxogr/foxhole-stockpiles)
-
-## Credits
-
-Created and maintained by Jorge García ([@xurxogr](https://github.com/xurxogr))
-
-This client works in conjunction with the [Foxhole Stockpiles Server](https://github.com/xurxogr/foxhole-stockpiles) for complete stockpile processing functionality.
