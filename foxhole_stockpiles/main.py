@@ -1,4 +1,9 @@
-"""Main entry point for the Foxhole Stockpiles Client application."""
+"""Main entry point for the Foxhole Stockpiles Client application.
+
+Run this from the project root (foxhole-stockpiles-client/) with:
+
+    python -m foxhole_stockpiles.main
+"""
 
 from foxhole_stockpiles import __version__
 from foxhole_stockpiles.ui.app import App

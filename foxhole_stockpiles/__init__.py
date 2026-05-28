@@ -1,4 +1,4 @@
-"""Client Desktop application for capturing and sending stockpile screenshots."""
+"""Client Desktop application for watching and submitting SAV stockpile data."""
 
 __version__ = "1.0.0"
 

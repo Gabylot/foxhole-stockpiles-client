@@ -1,138 +1,106 @@
-"""Configuration management for the Foxhole Stockpiles Client."""
-
+import hashlib
 import json
+import os
+import subprocess
 from functools import lru_cache
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from foxhole_stockpiles.enums.auth_type import AuthType
 
+class SavSettings(BaseModel):
+    """Settings for SAV file watcher."""
 
-class KeybindSettings(BaseModel):
-    """Settings for keyboard keybinds."""
+    enabled: bool = Field(default=False)
+    sav_file: str | None = Field(description="Path to Foxhole .sav file", default=None)
+    fs_sav_exe: str | None = Field(description="Path to fs-sav executable", default=None)
+    endpoint: str | None = Field(description="SAV submission endpoint", default=None)
+    token: str | None = Field(description="X-API-TOKEN for SAV endpoint", default=None)
 
-    key: str | None = Field(description="Key to take a screenshot", default=None)
+    PUBLIC_TYPES: list[str] = Field(default=[
+        "FortBaseT1", "FortBaseT2", "FortBaseT3",
+        "RelicBase1",
+        "TownBase1", "TownBase2", "TownBase3",
+        "ForwardBase1",
+        "GarrisonStation",
+        "LargeShipBaseShip",
+        "LargeShipStorageShip",
+    ])
 
+    def is_configured(self) -> bool:
+        return bool(self.sav_file and self.fs_sav_exe and self.endpoint and self.token)
 
-class ServerSettings(BaseModel):
-    """Settings for server connection."""
+    def parse(self) -> list[dict] | None:
+        try:
+            result = subprocess.run(
+                [self.fs_sav_exe, "parse", self.sav_file],
+                capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                return None
+            return json.loads(result.stdout)
+        except Exception:
+            return None
 
-    url: str = Field(description="API URL", default="https://backend.com/fs/ocr/scan_image")
-    auth_type: AuthType | None = Field(
-        description="Authentication type (None, BASIC, BEARER)", default=None
-    )
-    username: str | None = Field(description="Username for basic auth", default=None)
-    password: str | None = Field(description="Password for basic auth", default=None)
-    token: str | None = Field(description="Token for bearer auth", default=None)
+    def filter_stockpiles(self, stockpiles: list[dict]) -> list[dict]:
+        filtered = []
+        for s in stockpiles:
+            if s.get("is_reserve") or s.get("type") in self.PUBLIC_TYPES:
+                if s.get("items") is None:
+                    s["items"] = []
+                filtered.append(s)
+        return filtered
 
-    @model_validator(mode="after")
-    def validate_auth_configuration(self) -> Self:
-        """Validate that authentication fields match the auth_type.
+    @staticmethod
+    def compute_hash(stockpile: dict) -> str:
+        items = sorted(stockpile.get("items") or [], key=lambda i: (i["code"], i["crated"]))
+        return hashlib.md5(json.dumps(items, sort_keys=True).encode()).hexdigest()
 
-        Returns:
-            The validated model instance
+    @staticmethod
+    def stockpile_key(stockpile: dict) -> str:
+        return f"{stockpile.get('name', '')}::{stockpile.get('type', '')}"
 
-        Raises:
-            ValueError: If authentication configuration is invalid
-        """
-        if self.auth_type == AuthType.BASIC:
-            if not self.username or not self.password:
-                raise ValueError("Username and password are required when auth_type is BASIC")
-            if self.token is not None:
-                raise ValueError("Token must be None when auth_type is BASIC")
-        elif self.auth_type == AuthType.BEARER:
-            if not self.token:
-                raise ValueError("Token is required when auth_type is BEARER")
-            if self.username is not None or self.password is not None:
-                raise ValueError("Username and password must be None when auth_type is BEARER")
-        elif self.auth_type is None:
-            if self.username is not None or self.password is not None or self.token is not None:
-                raise ValueError(
-                    "Username, password, and token must be None when auth_type is None"
-                )
-
-        return self
-
-
-class WebhookSettings(BaseModel):
-    """Settings for webhook forward auth."""
-
-    token: str | None = Field(description="Webhook forward auth token", default=None)
-    header: str | None = Field(description="Header name for webhook token", default=None)
-
-    @model_validator(mode="after")
-    def validate_webhook_configuration(self) -> Self:
-        """Validate that webhook token and header are both set or both None.
-
-        Returns:
-            The validated model instance
-
-        Raises:
-            ValueError: If webhook configuration is invalid
-        """
-        if self.token and not self.header:
-            raise ValueError("Header name is required when webhook token is set")
-        if self.header and not self.token:
-            raise ValueError("Webhook token is required when header name is set")
-
-        return self
+    @staticmethod
+    def auto_detect_sav_file() -> str | None:
+        """Auto-detect the Foxhole MapData.sav file in the default save path."""
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if not local_app_data:
+            return None
+        save_games_dir = Path(local_app_data) / "Foxhole" / "Saved" / "SaveGames"
+        if not save_games_dir.is_dir():
+            return None
+        for entry in save_games_dir.iterdir():
+            if entry.is_file() and entry.name.endswith("MapData.sav"):
+                return str(entry.resolve())
+        return None
 
 
 class AppSettings(BaseSettings):
-    """Main application settings."""
-
     model_config = SettingsConfigDict(extra="ignore")
 
-    language: str = Field(description="Application language", default="en")
-    keybind: KeybindSettings = Field(default_factory=KeybindSettings)
-    server: ServerSettings = Field(default_factory=ServerSettings)
-    webhook: WebhookSettings = Field(default_factory=WebhookSettings)
+    language: str = Field(default="en")
+    sav: SavSettings = Field(default_factory=SavSettings)
 
     @classmethod
     def from_json(cls, file_path: str = "config.json") -> Self:
-        """Read the settings from a JSON file.
-
-        Args:
-            file_path: The path to the JSON file
-
-        Returns:
-            AppSettings: The settings instance
-        """
         config_file = Path(file_path)
         if not config_file.exists():
-            # Return default settings if file doesn't exist
             return cls()
-
         with open(config_file) as f:
             data = json.load(f)
-
         return cls(**data)
 
     def save(self, file_path: str = "config.json") -> None:
-        """Save the settings to a JSON file.
-
-        Args:
-            file_path: The path to the JSON file
-        """
         config_file = Path(file_path)
-
-        # Create a dictionary with only the values we want to save
         data = self.model_dump(mode="json")
-
         with open(config_file, "w") as f:
             json.dump(data, f, indent=2)
 
 
 @lru_cache
 def get_settings() -> AppSettings:
-    """Get or create the application settings singleton.
-
-    Returns:
-        AppSettings: The application settings instance.
-    """
     return AppSettings.from_json()
 
 

@@ -1,19 +1,17 @@
-"""Settings window for configuring all application settings."""
+"""Settings window for configuring the SAV watcher."""
 
-import threading
+import tkinter.filedialog as fd
 from typing import Any
 
 import ttkbootstrap as tb
-from ttkbootstrap.constants import BOTH, BOTTOM, LEFT, PRIMARY, RIGHT, SECONDARY, YES, X
+from ttkbootstrap.constants import BOTH, BOTTOM, LEFT, LIGHT, PRIMARY, RIGHT, SECONDARY, YES, X
 
 from foxhole_stockpiles.core.config import settings
-from foxhole_stockpiles.enums.auth_type import AuthType
 from foxhole_stockpiles.i18n import get_available_languages, get_translator, t
-from foxhole_stockpiles.models.keypress import KeyPress
 
 
 class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
-    """Settings dialog window for all application configuration."""
+    """Settings dialog window for SAV watcher configuration."""
 
     def __init__(self, parent: Any) -> None:
         """Create settings window.
@@ -47,22 +45,6 @@ class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
         # Set the window position
         self.geometry(f"+{x}+{y}")
 
-        # Dangerous headers that should be blocked
-        self.dangerous_headers = {
-            "authorization",
-            "host",
-            "connection",
-            "content-length",
-            "transfer-encoding",
-            "te",
-            "trailer",
-            "upgrade",
-            "proxy-authorization",
-            "proxy-authenticate",
-            "content-encoding",
-            "content-type",
-        }
-
         self.create_widgets()
 
     def create_widgets(self) -> None:
@@ -74,20 +56,10 @@ class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
         notebook = tb.Notebook(main_frame)
         notebook.pack(fill=BOTH, expand=YES)
 
-        # Keybind tab
-        keybind_frame = tb.Frame(notebook, padding=10)
-        notebook.add(keybind_frame, text=t("settings.tab.keybind"))
-        self.create_keybind_tab(keybind_frame)
-
-        # Server tab
-        server_frame = tb.Frame(notebook, padding=10)
-        notebook.add(server_frame, text=t("settings.tab.server"))
-        self.create_server_tab(server_frame)
-
-        # Webhook tab
-        webhook_frame = tb.Frame(notebook, padding=10)
-        notebook.add(webhook_frame, text=t("settings.tab.webhook"))
-        self.create_webhook_tab(webhook_frame)
+        # SAV tab
+        sav_frame = tb.Frame(notebook, padding=10)
+        notebook.add(sav_frame, text=t("settings.tab.sav"))
+        self.create_sav_tab(sav_frame)
 
         # Language tab
         language_frame = tb.Frame(notebook, padding=10)
@@ -114,157 +86,73 @@ class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
         )
         save_button.pack(side=RIGHT, padx=5)
 
-    def create_keybind_tab(self, parent: Any) -> None:
-        """Create keybind configuration tab.
+    def create_sav_tab(self, parent: Any) -> None:
+        """Create SAV configuration tab.
 
         Args:
             parent: Parent frame
         """
-        tb.Label(parent, text=t("settings.keybind.title"), font=("", 12, "bold")).pack(
+        tb.Label(parent, text=t("settings.sav.title"), font=("", 12, "bold")).pack(
             anchor="w", pady=(0, 10)
         )
 
-        # Keybind entry
-        keybind_frame = tb.Frame(parent)
-        keybind_frame.pack(fill=X, pady=5)
+        # SAV file path
+        sav_file_frame = tb.Frame(parent)
+        sav_file_frame.pack(fill=X, pady=5)
+        tb.Label(sav_file_frame, text=t("settings.sav.label_sav_file"), width=26).pack(side=LEFT)
+        self.sav_file_var = tb.StringVar(value=settings.sav.sav_file or "")
+        tb.Entry(sav_file_frame, textvariable=self.sav_file_var).pack(side=LEFT, fill=X, expand=YES)
+        tb.Button(
+            sav_file_frame,
+            text="Auto Detect",
+            command=self._auto_detect_sav_file,
+            bootstyle=LIGHT,
+        ).pack(side=LEFT, padx=(5, 0))
+        tb.Button(
+            sav_file_frame,
+            text="Browse...",
+            command=self._browse_sav_file,
+            bootstyle=SECONDARY,
+        ).pack(side=LEFT, padx=(5, 0))
 
-        tb.Label(keybind_frame, text=t("settings.keybind.label_key"), width=22).pack(side=LEFT)
-        self.keybind_var = tb.StringVar(
-            value=settings.keybind.key
-            if settings.keybind.key
-            else t("settings.keybind.no_key_defined")
-        )
-        tb.Entry(keybind_frame, textvariable=self.keybind_var, state="readonly").pack(
-            side=LEFT, fill=X, expand=YES, padx=(0, 10)
-        )
-        change_button = tb.Button(
-            keybind_frame, text=t("settings.button.change"), command=self.change_keybind
-        )
-        change_button.pack(side=LEFT)
+        # Auto-detect SAV file on first open if not configured
+        if not settings.sav.sav_file:
+            self._auto_detect_sav_file()
 
-        tb.Label(
-            parent,
-            text=t("settings.keybind.hint"),
-            font=("", 9),
-        ).pack(anchor="w", pady=(5, 0))
-
-    def create_server_tab(self, parent: Any) -> None:
-        """Create server configuration tab.
-
-        Args:
-            parent: Parent frame
-        """
-        tb.Label(parent, text=t("settings.server.title"), font=("", 12, "bold")).pack(
-            anchor="w", pady=(0, 10)
-        )
-
-        # Server URL
-        url_frame = tb.Frame(parent)
-        url_frame.pack(fill=X, pady=5)
-        tb.Label(url_frame, text=t("settings.server.label_url"), width=22).pack(side=LEFT)
-        self.server_url_var = tb.StringVar(value=settings.server.url)
-        tb.Entry(url_frame, textvariable=self.server_url_var).pack(side=LEFT, fill=X, expand=YES)
+        # fs-sav executable path
+        exe_frame = tb.Frame(parent)
+        exe_frame.pack(fill=X, pady=5)
+        tb.Label(exe_frame, text=t("settings.sav.label_fs_sav_exe"), width=26).pack(side=LEFT)
+        self.fs_sav_exe_var = tb.StringVar(value=settings.sav.fs_sav_exe or "")
+        tb.Entry(exe_frame, textvariable=self.fs_sav_exe_var).pack(side=LEFT, fill=X, expand=YES)
+        tb.Button(
+            exe_frame,
+            text="Browse...",
+            command=self._browse_fs_sav_exe,
+            bootstyle=SECONDARY,
+        ).pack(side=LEFT, padx=(5, 0))
 
         # Separator
         tb.Separator(parent, orient="horizontal").pack(fill=X, pady=20)
 
-        # Authentication section
-        tb.Label(parent, text=t("settings.server.auth_title"), font=("", 12, "bold")).pack(
+        # Submission section
+        tb.Label(parent, text=t("settings.sav.submission_title"), font=("", 12, "bold")).pack(
             anchor="w", pady=(0, 10)
         )
 
-        # Auth type
-        auth_frame = tb.Frame(parent)
-        auth_frame.pack(fill=X, pady=5)
-        tb.Label(auth_frame, text=t("settings.server.label_auth_type"), width=22).pack(side=LEFT)
-        if settings.server.auth_type:
-            auth_value = settings.server.auth_type.value
-        else:
-            auth_value = t("settings.server.auth_none")
-        self.auth_type_var = tb.StringVar(value=auth_value)
-        auth_combo = tb.Combobox(
-            auth_frame,
-            textvariable=self.auth_type_var,
-            values=[t("settings.server.auth_none"), AuthType.BASIC.value, AuthType.BEARER.value],
-            state="readonly",
-        )
-        auth_combo.pack(side=LEFT, fill=X, expand=YES)
-        auth_combo.bind("<<ComboboxSelected>>", self.on_auth_type_changed)
+        # Endpoint
+        endpoint_frame = tb.Frame(parent)
+        endpoint_frame.pack(fill=X, pady=5)
+        tb.Label(endpoint_frame, text=t("settings.sav.label_endpoint"), width=26).pack(side=LEFT)
+        self.endpoint_var = tb.StringVar(value=settings.sav.endpoint or "")
+        tb.Entry(endpoint_frame, textvariable=self.endpoint_var).pack(side=LEFT, fill=X, expand=YES)
 
-        # Basic auth fields
-        self.basic_auth_frame = tb.Frame(parent)
-        self.basic_auth_frame.pack(fill=X, pady=(10, 0))
-
-        username_frame = tb.Frame(self.basic_auth_frame)
-        username_frame.pack(fill=X, pady=5)
-        tb.Label(username_frame, text=t("settings.server.label_username"), width=22).pack(side=LEFT)
-        self.username_var = tb.StringVar(
-            value=settings.server.username if settings.server.username else ""
-        )
-        tb.Entry(username_frame, textvariable=self.username_var).pack(side=LEFT, fill=X, expand=YES)
-
-        password_frame = tb.Frame(self.basic_auth_frame)
-        password_frame.pack(fill=X, pady=5)
-        tb.Label(password_frame, text=t("settings.server.label_password"), width=22).pack(side=LEFT)
-        self.password_var = tb.StringVar(
-            value=settings.server.password if settings.server.password else ""
-        )
-        tb.Entry(password_frame, textvariable=self.password_var, show="*").pack(
-            side=LEFT, fill=X, expand=YES
-        )
-
-        # Bearer token field
-        self.bearer_frame = tb.Frame(parent)
-        self.bearer_frame.pack(fill=X, pady=(10, 0))
-
-        token_frame = tb.Frame(self.bearer_frame)
-        token_frame.pack(fill=X, pady=5)
-        tb.Label(token_frame, text=t("settings.server.label_token"), width=22).pack(side=LEFT)
-        self.bearer_token_var = tb.StringVar(
-            value=settings.server.token if settings.server.token else ""
-        )
-        tb.Entry(token_frame, textvariable=self.bearer_token_var).pack(
-            side=LEFT, fill=X, expand=YES
-        )
-
-        # Show/hide auth fields based on type
-        self.on_auth_type_changed(None)
-
-    def create_webhook_tab(self, parent: Any) -> None:
-        """Create webhook configuration tab.
-
-        Args:
-            parent: Parent frame
-        """
-        tb.Label(parent, text=t("settings.webhook.title"), font=("", 12, "bold")).pack(
-            anchor="w", pady=(0, 10)
-        )
-
-        tb.Label(
-            parent,
-            text=t("settings.webhook.hint"),
-            font=("", 9),
-        ).pack(anchor="w", pady=(0, 20))
-
-        # Webhook token
+        # API Token
         token_frame = tb.Frame(parent)
         token_frame.pack(fill=X, pady=5)
-        tb.Label(token_frame, text=t("settings.webhook.label_token"), width=22).pack(side=LEFT)
-        self.webhook_token_var = tb.StringVar(
-            value=settings.webhook.token if settings.webhook.token else ""
-        )
-        tb.Entry(token_frame, textvariable=self.webhook_token_var).pack(
-            side=LEFT, fill=X, expand=YES
-        )
-
-        # Webhook header
-        header_frame = tb.Frame(parent)
-        header_frame.pack(fill=X, pady=5)
-        tb.Label(header_frame, text=t("settings.webhook.label_header"), width=22).pack(side=LEFT)
-        self.webhook_header_var = tb.StringVar(
-            value=settings.webhook.header if settings.webhook.header else ""
-        )
-        tb.Entry(header_frame, textvariable=self.webhook_header_var).pack(
+        tb.Label(token_frame, text=t("settings.sav.label_token"), width=26).pack(side=LEFT)
+        self.token_var = tb.StringVar(value=settings.sav.token or "")
+        tb.Entry(token_frame, textvariable=self.token_var, show="*").pack(
             side=LEFT, fill=X, expand=YES
         )
 
@@ -311,176 +199,39 @@ class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
         )
         lang_combo.pack(side=LEFT, fill=X, expand=YES)
 
-    def on_auth_type_changed(self, event: Any) -> None:
-        """Handle auth type selection change.
+    def _auto_detect_sav_file(self) -> None:
+        """Auto-detect the Foxhole MapData.sav file in the default save location."""
+        path = settings.sav.auto_detect_sav_file()
+        if path:
+            self.sav_file_var.set(path)
 
-        Args:
-            event: Event object (unused)
-        """
-        auth_type = self.auth_type_var.get()
+    def _browse_sav_file(self) -> None:
+        """Open a file dialog to select the .sav file."""
+        path = fd.askopenfilename(
+            title="Select SAV File",
+            filetypes=[("SAV files", "*.sav"), ("All files", "*.*")],
+            parent=self,
+        )
+        if path:
+            self.sav_file_var.set(path)
 
-        if auth_type == AuthType.BASIC.value:
-            self.basic_auth_frame.pack(fill=X, pady=(10, 0))
-            self.bearer_frame.pack_forget()
-        elif auth_type == AuthType.BEARER.value:
-            self.basic_auth_frame.pack_forget()
-            self.bearer_frame.pack(fill=X, pady=(10, 0))
-        else:  # none
-            self.basic_auth_frame.pack_forget()
-            self.bearer_frame.pack_forget()
-
-    def change_keybind(self) -> None:
-        """Change keybind callback. Opens a thread to capture a new keybind."""
-        self.keybind_var.set(t("settings.keybind.waiting"))
-        threading.Thread(target=self.read_keybind).start()
-
-    def read_keybind(self) -> None:
-        """Waits for a new key combination and updates the keybind field."""
-        k = KeyPress()
-        key = k.read_key()
-
-        if not key:
-            self.keybind_var.set(t("settings.keybind.no_key_defined"))
-            return
-
-        try:
-            # Validate the key can be used as a global hotkey
-            k.prepare_for_global_hotkey(key)
-            self.keybind_var.set(key)
-        except ValueError:
-            self.keybind_var.set(t("settings.keybind.invalid_key") + f" {key}")
-
-    def validate_settings(self) -> bool:
-        """Validate all settings before saving.
-
-        Returns:
-            bool: True if all settings are valid, False otherwise
-        """
-        # Validate webhook configuration
-        webhook_token = self.webhook_token_var.get()
-        webhook_header = self.webhook_header_var.get()
-
-        if webhook_token and not webhook_header:
-            tb.dialogs.Messagebox.show_error(
-                t("settings.validation.webhook_header_required"),
-                t("settings.validation.missing_webhook_header"),
-                parent=self,
-            )
-            return False
-
-        if webhook_header and not webhook_token:
-            tb.dialogs.Messagebox.show_error(
-                t("settings.validation.webhook_token_required"),
-                t("settings.validation.missing_webhook_token"),
-                parent=self,
-            )
-            return False
-
-        # Validate webhook header format (only if provided)
-        if webhook_header:
-            if webhook_header.lower() in self.dangerous_headers:
-                tb.dialogs.Messagebox.show_error(
-                    t("settings.validation.protected_header", header=webhook_header),
-                    t("settings.validation.invalid_header"),
-                    parent=self,
-                )
-                return False
-
-            if not all(c.isalnum() or c in "-_" for c in webhook_header):
-                tb.dialogs.Messagebox.show_error(
-                    t("settings.validation.invalid_header_format", header=webhook_header),
-                    t("settings.validation.invalid_header"),
-                    parent=self,
-                )
-                return False
-
-        # Validate auth type
-        auth_type = self.auth_type_var.get()
-        valid_types = [t("settings.server.auth_none"), AuthType.BASIC.value, AuthType.BEARER.value]
-        if auth_type not in valid_types:
-            tb.dialogs.Messagebox.show_error(
-                t("settings.validation.invalid_auth_type_message", auth_type=auth_type),
-                t("settings.validation.invalid_auth_type"),
-                parent=self,
-            )
-            return False
-
-        # Validate auth credentials match auth type
-        if auth_type == AuthType.BASIC.value:
-            username = self.username_var.get()
-            password = self.password_var.get()
-            if not username or not password:
-                tb.dialogs.Messagebox.show_error(
-                    t("settings.validation.basic_auth_required"),
-                    t("settings.validation.missing_credentials"),
-                    parent=self,
-                )
-                return False
-        elif auth_type == AuthType.BEARER.value:
-            token = self.bearer_token_var.get()
-            if not token:
-                tb.dialogs.Messagebox.show_error(
-                    t("settings.validation.bearer_token_required"),
-                    t("settings.validation.missing_token"),
-                    parent=self,
-                )
-                return False
-
-        return True
+    def _browse_fs_sav_exe(self) -> None:
+        """Open a file dialog to select the fs-sav executable."""
+        path = fd.askopenfilename(
+            title="Select fs-sav Executable",
+            filetypes=[("Executable files", "*.exe"), ("All files", "*.*")],
+            parent=self,
+        )
+        if path:
+            self.fs_sav_exe_var.set(path)
 
     def on_save(self) -> None:
         """Handle save button click."""
-        if not self.validate_settings():
-            return
-
-        # Save keybind
-        keybind_value = self.keybind_var.get()
-        no_key_msg = t("settings.keybind.no_key_defined")
-        invalid_key_msg = t("settings.keybind.invalid_key")
-        waiting_msg = t("settings.keybind.waiting")
-
-        if (
-            keybind_value
-            and keybind_value != no_key_msg
-            and not keybind_value.startswith(invalid_key_msg)
-            and keybind_value != waiting_msg
-        ):
-            settings.keybind.key = keybind_value
-        else:
-            settings.keybind.key = None
-
-        # Save server settings
-        settings.server.url = self.server_url_var.get()
-
-        # Save auth settings
-        auth_type_str = self.auth_type_var.get()
-        if auth_type_str == t("settings.server.auth_none"):
-            settings.server.auth_type = None
-        elif auth_type_str == AuthType.BASIC.value:
-            settings.server.auth_type = AuthType.BASIC
-        elif auth_type_str == AuthType.BEARER.value:
-            settings.server.auth_type = AuthType.BEARER
-
-        if auth_type_str == AuthType.BASIC.value:
-            settings.server.username = self.username_var.get() if self.username_var.get() else None
-            settings.server.password = self.password_var.get() if self.password_var.get() else None
-            settings.server.token = None
-        elif auth_type_str == AuthType.BEARER.value:
-            settings.server.token = (
-                self.bearer_token_var.get() if self.bearer_token_var.get() else None
-            )
-            settings.server.username = None
-            settings.server.password = None
-        else:  # none
-            settings.server.username = None
-            settings.server.password = None
-            settings.server.token = None
-
-        # Save webhook settings
-        webhook_token = self.webhook_token_var.get()
-        webhook_header = self.webhook_header_var.get()
-        settings.webhook.token = webhook_token if webhook_token else None
-        settings.webhook.header = webhook_header if webhook_header else None
+        # Save SAV settings
+        settings.sav.sav_file = self.sav_file_var.get() or None
+        settings.sav.fs_sav_exe = self.fs_sav_exe_var.get() or None
+        settings.sav.endpoint = self.endpoint_var.get() or None
+        settings.sav.token = self.token_var.get() or None
 
         # Save language settings
         language_name = self.language_var.get()

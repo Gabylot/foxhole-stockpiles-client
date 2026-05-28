@@ -5,29 +5,14 @@
       "settings": "Einstellungen",
       "configure": "Konfigurieren"
     },
-    "button": {
-      "start_capture": "Screenshot-Modus aktivieren",
-      "stop_capture": "Aufnahme stoppen"
-    },
     "message": {
-      "keybind_not_set": "Die Taste ist nicht festgelegt. Der Screenshot-Modus ist deaktiviert, bis eine Taste festgelegt wurde.",
-      "auth_not_configured": "Die Authentifizierung ist nicht konfiguriert. Der Screenshot-Modus ist deaktiviert, bis die Authentifizierung eingerichtet wurde.",
-      "settings_saved": "Einstellungen erfolgreich gespeichert.",
-      "capture_disabled": "Der Screenshot-Modus ist deaktiviert.",
-      "capture_enabled": "Der Screenshot-Modus ist jetzt aktiviert.",
-      "foxhole_not_running": "Foxhole läuft nicht",
-      "foxhole_minimized": "Foxhole ist minimiert",
-      "foxhole_not_active": "Foxhole muss das aktive Fenster sein",
-      "sending_screenshot": "Screenshot wird gesendet...",
-      "error_sending_image": "Fehler beim Senden des Screenshots."
+      "settings_saved": "Einstellungen erfolgreich gespeichert."
     }
   },
   "settings": {
     "title": "Einstellungen",
     "tab": {
-      "keybind": "Tastenbelegung",
-      "server": "Server",
-      "webhook": "Webhook",
+      "sav": "SAV-Überwachung",
       "language": "Sprache"
     },
     "button": {
@@ -35,49 +20,18 @@
       "save": "Speichern",
       "change": "Ändern"
     },
-    "keybind": {
-      "title": "Screenshot-Tastenbelegung",
-      "label_key": "Taste:",
-      "hint": "Drücken Sie die Tastenkombination, die Sie für Screenshots verwenden möchten",
-      "no_key_defined": "Keine Taste definiert. Klicken Sie auf 'Ändern', um eine Taste festzulegen",
-      "waiting": "Warte auf eine neue Taste...",
-      "invalid_key": "Ungültige Taste erkannt:"
-    },
-    "server": {
-      "title": "Server-Konfiguration",
-      "label_url": "Server-URL:",
-      "auth_title": "Authentifizierung",
-      "label_auth_type": "Authentifizierungstyp:",
-      "auth_none": "keine",
-      "label_username": "Benutzername:",
-      "label_password": "Passwort:",
-      "label_token": "Token:"
-    },
-    "webhook": {
-      "title": "Webhook-Authentifizierung",
-      "hint": "Optional: Konfigurieren Sie einen benutzerdefinierten Header für die Webhook-Weiterleitung",
-      "label_token": "Token:",
-      "label_header": "Header-Name:"
+    "sav": {
+      "title": "SAV-Dateikonfiguration",
+      "label_sav_file": "SAV-Dateipfad:",
+      "label_fs_sav_exe": "fs-sav-Programm:",
+      "submission_title": "Übermittlungskonfiguration",
+      "label_endpoint": "Endpunkt-URL:",
+      "label_token": "API-Token:"
     },
     "language": {
       "title": "Spracheinstellungen",
       "label_language": "Sprache:",
       "hint": "Wählen Sie Ihre bevorzugte Sprache"
-    },
-    "validation": {
-      "invalid_header": "Ungültiger Header",
-      "protected_header": "Der Header '{header}' kann nicht verwendet werden. Dies ist ein geschützter HTTP-Header.",
-      "invalid_header_format": "Ungültiger Header-Name '{header}'. Verwenden Sie nur Buchstaben, Zahlen, Bindestriche und Unterstriche.",
-      "invalid_auth_type": "Ungültiger Authentifizierungstyp",
-      "invalid_auth_type_message": "Ungültiger Authentifizierungstyp: {auth_type}",
-      "missing_credentials": "Fehlende Anmeldeinformationen",
-      "basic_auth_required": "Benutzername und Passwort sind erforderlich, wenn Sie BASIC-Authentifizierung verwenden.",
-      "missing_token": "Fehlender Token",
-      "bearer_token_required": "Der Token ist erforderlich, wenn Sie BEARER-Authentifizierung verwenden.",
-      "missing_webhook_header": "Fehlender Webhook-Header",
-      "webhook_header_required": "Der Header-Name ist erforderlich, wenn der Webhook-Token festgelegt wurde.",
-      "missing_webhook_token": "Fehlender Webhook-Token",
-      "webhook_token_required": "Der Webhook-Token ist erforderlich, wenn der Header-Name festgelegt wurde."
     }
   }
 }

@@ -1,19 +1,13 @@
 """Main application window for the Foxhole Stockpiles Client."""
 
-import re
 import threading
 from datetime import datetime
-from io import BytesIO
 from typing import Any
 
-import pywinctl
 import ttkbootstrap as tb
 from httpx import Client, Timeout
-from PIL import ImageGrab
-from pynput import keyboard
 from ttkbootstrap.constants import (
     BOTH,
-    DANGER,
     DISABLED,
     END,
     LEFT,
@@ -29,9 +23,7 @@ from ttkbootstrap.constants import (
 )
 
 from foxhole_stockpiles.core.config import settings
-from foxhole_stockpiles.enums.auth_type import AuthType
 from foxhole_stockpiles.i18n import get_translator, t
-from foxhole_stockpiles.models.keypress import KeyPress
 from foxhole_stockpiles.ui.settings_window import SettingsWindow
 
 
@@ -65,37 +57,7 @@ class App(tb.Window):  # type: ignore[misc]
         # Initialize translator with configured language
         get_translator(settings.language)
 
-        self._counter = 0
-        self._capture_enabled = False
-        self._thread = None
-
-        # Prepare the profile URL for the token
-        pattern = r"^(https?://[^/]+).*"
-        replacement = r"\1/profile"
-
-        # Apply the regex substitution
-        self._token_url = re.sub(pattern, replacement, settings.server.url)
-
-        # Transform the keybind into a hotkey
-        if not settings.keybind.key:
-            self._hotkey = None
-        else:
-            try:
-                k = KeyPress()
-                self._hotkey = k.prepare_for_global_hotkey(settings.keybind.key)
-            except ValueError:
-                self._hotkey = None
-
         self.create_widgets()
-
-        # Change the status of the capture button if options are not set
-        if not settings.keybind.key:
-            self.message(message=t("app.message.keybind_not_set"))
-            self.capture_button.configure(state=DISABLED)
-
-        if not self._check_auth_configured():
-            self.message(message=t("app.message.auth_not_configured"))
-            self.capture_button.configure(state=DISABLED)
 
         self.mainloop()
 
@@ -115,20 +77,22 @@ class App(tb.Window):  # type: ignore[misc]
 
         buttons_frame = tb.Frame(main_frame)
         buttons_frame.pack(fill=X, expand=NO)
-        # Buttons
-        self.capture_button = tb.Button(
+
+        self.process_button = tb.Button(
             buttons_frame,
-            text=t("app.button.start_capture"),
-            command=self.command_capture,
+            text="Process SAV",
+            command=self.command_process_sav,
             bootstyle=LIGHT,
         )
-        self.capture_button.pack(side=LEFT, padx=5)
+        self.process_button.pack(side=LEFT, padx=5)
+
+        # Disable button if SAV config is not complete
+        if not settings.sav.is_configured():
+            self.process_button.configure(state=DISABLED)
 
         # Text Area with Scrollbar
         text_frame = tb.Frame(main_frame)
         text_frame.pack(fill=BOTH, expand=YES)
-        # Logs
-        # tb.Label(text_frame, text="Logs").pack(side=LEFT, pady=10)
 
         self._text_area = tb.Text(text_frame, wrap=WORD, height=10)
         self._text_area.pack(side=LEFT, fill=BOTH, expand=YES, pady=10)
@@ -138,18 +102,6 @@ class App(tb.Window):  # type: ignore[misc]
 
         self._text_area.configure(yscrollcommand=scrollbar.set)
 
-    def update_ui_language(self) -> None:
-        """Update all UI text elements with current language translations."""
-        # Update menu labels
-        self.menubar.entryconfigure(0, label=t("app.menu.settings"))
-        self.settings_menu.entryconfigure(0, label=t("app.menu.configure"))
-
-        # Update capture button text based on current state
-        if self._capture_enabled:
-            self.capture_button.configure(text=t("app.button.stop_capture"))
-        else:
-            self.capture_button.configure(text=t("app.button.start_capture"))
-
     # Menu Commands
     def command_settings(self) -> None:
         """'Settings' callback. Opens the settings configuration window."""
@@ -157,136 +109,63 @@ class App(tb.Window):  # type: ignore[misc]
         saved = settings_window.show()
 
         if saved:
-            # Update UI language if it changed
-            self.update_ui_language()
-
             self.message(message=t("app.message.settings_saved"))
-
-            # Update hotkey if keybind changed
-            if settings.keybind.key:
-                try:
-                    k = KeyPress()
-                    self._hotkey = k.prepare_for_global_hotkey(settings.keybind.key)
-                except ValueError:
-                    self._hotkey = None
+            # Re-evaluate button state based on new settings
+            if settings.sav.is_configured():
+                self.process_button.configure(state=NORMAL)
             else:
-                self._hotkey = None
+                self.process_button.configure(state=DISABLED)
 
-            # Update capture button state
-            state = NORMAL if settings.keybind.key and self._check_auth_configured() else DISABLED
-            self.capture_button.configure(state=state)
+    def command_process_sav(self) -> None:
+        """Parse the SAV file and submit all stockpiles."""
+        self.message("SAV: Parsing file...")
+        threading.Thread(target=self._process_and_submit).start()
 
-    def command_capture(self) -> None:
-        """Enable capture callback.
+    def _process_and_submit(self) -> None:
+        """Parse the SAV file and submit stockpiles (runs in background thread)."""
+        sav = settings.sav
+        stockpiles = sav.parse()
 
-        Used to enable or disable the global keypress to take screenshots of Foxhole.
-        """
-        if self._capture_enabled:
-            self.capture_button.configure(text=t("app.button.start_capture"), bootstyle=LIGHT)
-            self.message(t("app.message.capture_disabled"))
-            if self._thread:
-                self._thread.stop()
-                self._thread = None
-        else:
-            self.message(t("app.message.capture_enabled"))
-            self.capture_button.configure(text=t("app.button.stop_capture"), bootstyle=DANGER)
-            self._thread = keyboard.GlobalHotKeys({self._hotkey: self.command_screenshot})
-            self._thread.start()
-
-        self._capture_enabled = not self._capture_enabled
-
-    def command_screenshot(self) -> None:
-        """Take Screenshot callback.
-
-        Used to take a screenshot of Foxhole and send it to the server.
-        """
-        img = self.take_screenshot()
-        if not img:
+        if stockpiles is None:
+            self.message("SAV: Failed to parse file.")
             return
 
-        # Open a new thread to avoid blocking the execution
-        threading.Thread(target=self.send_image, args=(img,)).start()
+        filtered = sav.filter_stockpiles(stockpiles)
 
-    def send_image(self, img: Any) -> None:
-        """Sends an image to foxhole_stockpiles server.
+        if not filtered:
+            self.message("SAV: No matching stockpiles found.")
+            return
 
-        Args:
-            img: Image to send
-        """
-        self._counter += 1
-        current_screenshot = self._counter
-        self.message(message=f"[{current_screenshot}] {t('app.message.sending_screenshot')}")
-        byte_io = BytesIO()
-        img.save(byte_io, "png")
-        byte_io.seek(0)
+        self.message(f"SAV: Found {len(filtered)} stockpile(s), submitting...")
+        self._submit(filtered)
 
-        # Prepare authentication headers based on auth type
-        auth_type = settings.server.auth_type
-        headers: dict[str, str] = {}
-        auth: tuple[str, str] | None = None
-
-        if auth_type == AuthType.BEARER:
-            # Pydantic validation ensures token is not None for BEARER auth
-            token = settings.server.token
-            if token:  # Type guard for mypy
-                headers["Authorization"] = f"Bearer {token}"
-        elif auth_type == AuthType.BASIC:
-            # Pydantic validation ensures username and password are not None for BASIC auth
-            username = settings.server.username
-            password = settings.server.password
-            if username and password:  # Type guard for mypy
-                auth = (username, password)
-        # For None auth_type, no additional auth needed
-
-        # Add webhook forward auth header if configured
-        webhook_token = settings.webhook.token
-        webhook_header = settings.webhook.header
-        if webhook_token and webhook_header:  # Pydantic validation ensures both are set
-            headers[webhook_header] = webhook_token
-
+    def _submit(self, stockpiles: list) -> None:
+        """POST stockpiles to the SAV endpoint."""
+        sav = settings.sav
         timeout = Timeout(10.0, read=60.0)
-        with Client(auth=auth, headers=headers, verify=False, timeout=timeout) as client:
+
+        with Client(
+            headers={"X-API-TOKEN": sav.token, "Accept": "application/json"},
+            verify=False,
+            timeout=timeout,
+        ) as client:
             try:
                 response = client.post(
-                    url=settings.server.url,
-                    files={"image": ("screenshot.png", byte_io, "image/png")},
+                    url=sav.endpoint,
+                    json={"stockpiles": stockpiles},
                 )
             except Exception as ex:
-                error_msg = f"[{current_screenshot}] {t('app.message.error_sending_image')} {ex}"
-                self.message(message=error_msg)
-            else:
-                try:
-                    text = response.json().get("message")
-                except Exception:
-                    text = response.text
+                self.message(f"SAV: Error sending data: {ex}")
+                return
 
-                if response.status_code == 200:
-                    self.message(message=f"[{current_screenshot}] {text}")
-                else:
-                    error_msg = (
-                        f"[{current_screenshot}] {t('app.message.error_sending_image')} "
-                        f"Status_code: {response.status_code}. Error: {text}"
-                    )
-                    self.message(message=error_msg)
-
-    def take_screenshot(self) -> Any:
-        """Take an screeshot of Foxhole."""
-        try:
-            foxhole = pywinctl.getWindowsWithTitle(title="War", condition=pywinctl.Re.STARTSWITH)[0]
-        except Exception:
-            self.message(message=t("app.message.foxhole_not_running"))
-            return None
-
-        if foxhole.isMinimized:
-            self.message(message=t("app.message.foxhole_minimized"))
-            return None
-
-        if not foxhole.isActive:
-            self.message(message=t("app.message.foxhole_not_active"))
-            return None
-
-        region = foxhole.getClientFrame()
-        return ImageGrab.grab(bbox=region, all_screens=True)
+            try:
+                results = response.json()
+                if not isinstance(results, list):
+                    results = [results]
+                for r in results:
+                    self.message(f"SAV: {r.get('message', r)}")
+            except Exception:
+                self.message(f"SAV: Unexpected response: {response.text}")
 
     def message(self, message: str) -> None:
         """Add a message to the text area.
@@ -297,19 +176,3 @@ class App(tb.Window):  # type: ignore[misc]
         current_time = datetime.now().strftime("%H:%M:%S")
         self._text_area.insert(END, f"[{current_time}] {message}\n")
         self._text_area.see(END)
-
-    def _check_auth_configured(self) -> bool:
-        """Check if authentication is properly configured based on auth type.
-
-        Returns:
-            bool: True if auth is configured, False otherwise
-        """
-        auth_type = settings.server.auth_type
-
-        if auth_type is None:
-            return True
-        elif auth_type == AuthType.BASIC:
-            return bool(settings.server.username and settings.server.password)
-        elif auth_type == AuthType.BEARER:
-            return bool(settings.server.token)
-        return False
