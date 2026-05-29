@@ -12,6 +12,7 @@
   "settings": {
     "title": "Configurações",
     "tab": {
+      "keybind": "Atalho",
       "sav": "Monitor SAV",
       "language": "Idioma"
     },
@@ -19,6 +20,14 @@
       "cancel": "Cancelar",
       "save": "Salvar",
       "change": "Alterar"
+    },
+    "keybind": {
+      "title": "Atalho para Processar SAV",
+      "label_key": "Tecla:",
+      "hint": "Pressione a combinação de teclas para ativar o Process SAV",
+      "no_key_defined": "Nenhuma tecla definida. Clique em 'Alterar'",
+      "waiting": "Aguardando nova tecla...",
+      "invalid_key": "Tecla inválida detectada:"
     },
     "sav": {
       "title": "Configuração do Arquivo SAV",

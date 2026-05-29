@@ -12,6 +12,7 @@
   "settings": {
     "title": "设置",
     "tab": {
+      "keybind": "快捷键",
       "sav": "SAV 监视器",
       "language": "语言"
     },
@@ -19,6 +20,14 @@
       "cancel": "取消",
       "save": "保存",
       "change": "更改"
+    },
+    "keybind": {
+      "title": "Process SAV 快捷键",
+      "label_key": "按键：",
+      "hint": "按下用于触发 Process SAV 的组合键",
+      "no_key_defined": "未定义按键。点击'更改'设置按键",
+      "waiting": "等待新按键...",
+      "invalid_key": "检测到无效按键："
     },
     "sav": {
       "title": "SAV 文件配置",

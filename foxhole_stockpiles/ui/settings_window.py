@@ -1,5 +1,6 @@
 """Settings window for configuring the SAV watcher."""
 
+import threading
 import tkinter.filedialog as fd
 from typing import Any
 
@@ -8,6 +9,7 @@ from ttkbootstrap.constants import BOTH, BOTTOM, LEFT, LIGHT, PRIMARY, RIGHT, SE
 
 from foxhole_stockpiles.core.config import settings
 from foxhole_stockpiles.i18n import get_available_languages, get_translator, t
+from foxhole_stockpiles.models.keypress import KeyPress
 
 
 class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
@@ -56,6 +58,11 @@ class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
         notebook = tb.Notebook(main_frame)
         notebook.pack(fill=BOTH, expand=YES)
 
+        # Keybind tab
+        keybind_frame = tb.Frame(notebook, padding=10)
+        notebook.add(keybind_frame, text=t("settings.tab.keybind"))
+        self.create_keybind_tab(keybind_frame)
+
         # SAV tab
         sav_frame = tb.Frame(notebook, padding=10)
         notebook.add(sav_frame, text=t("settings.tab.sav"))
@@ -85,6 +92,40 @@ class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
             bootstyle=PRIMARY,
         )
         save_button.pack(side=RIGHT, padx=5)
+
+    def create_keybind_tab(self, parent: Any) -> None:
+        """Create keybind configuration tab.
+
+        Args:
+            parent: Parent frame
+        """
+        tb.Label(parent, text=t("settings.keybind.title"), font=("", 12, "bold")).pack(
+            anchor="w", pady=(0, 10)
+        )
+
+        # Keybind entry
+        keybind_frame = tb.Frame(parent)
+        keybind_frame.pack(fill=X, pady=5)
+
+        tb.Label(keybind_frame, text=t("settings.keybind.label_key"), width=22).pack(side=LEFT)
+        self.keybind_var = tb.StringVar(
+            value=settings.keybind.key
+            if settings.keybind.key
+            else t("settings.keybind.no_key_defined")
+        )
+        tb.Entry(keybind_frame, textvariable=self.keybind_var, state="readonly").pack(
+            side=LEFT, fill=X, expand=YES, padx=(0, 10)
+        )
+        change_button = tb.Button(
+            keybind_frame, text=t("settings.button.change"), command=self.change_keybind
+        )
+        change_button.pack(side=LEFT)
+
+        tb.Label(
+            parent,
+            text=t("settings.keybind.hint"),
+            font=("", 9),
+        ).pack(anchor="w", pady=(5, 0))
 
     def create_sav_tab(self, parent: Any) -> None:
         """Create SAV configuration tab.
@@ -199,6 +240,27 @@ class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
         )
         lang_combo.pack(side=LEFT, fill=X, expand=YES)
 
+    def change_keybind(self) -> None:
+        """Change keybind callback. Opens a thread to capture a new keybind."""
+        self.keybind_var.set(t("settings.keybind.waiting"))
+        threading.Thread(target=self.read_keybind).start()
+
+    def read_keybind(self) -> None:
+        """Waits for a new key combination and updates the keybind field."""
+        k = KeyPress()
+        key = k.read_key()
+
+        if not key:
+            self.keybind_var.set(t("settings.keybind.no_key_defined"))
+            return
+
+        try:
+            # Validate the key can be used as a global hotkey
+            k.prepare_for_global_hotkey(key)
+            self.keybind_var.set(key)
+        except ValueError:
+            self.keybind_var.set(t("settings.keybind.invalid_key") + f" {key}")
+
     def _auto_detect_sav_file(self) -> None:
         """Auto-detect the Foxhole MapData.sav file in the default save location."""
         path = settings.sav.auto_detect_sav_file()
@@ -227,6 +289,22 @@ class SettingsWindow(tb.Toplevel):  # type: ignore[misc]
 
     def on_save(self) -> None:
         """Handle save button click."""
+        # Save keybind
+        keybind_value = self.keybind_var.get()
+        no_key_msg = t("settings.keybind.no_key_defined")
+        invalid_key_msg = t("settings.keybind.invalid_key")
+        waiting_msg = t("settings.keybind.waiting")
+
+        if (
+            keybind_value
+            and keybind_value != no_key_msg
+            and not keybind_value.startswith(invalid_key_msg)
+            and keybind_value != waiting_msg
+        ):
+            settings.keybind.key = keybind_value
+        else:
+            settings.keybind.key = None
+
         # Save SAV settings
         settings.sav.sav_file = self.sav_file_var.get() or None
         settings.sav.fs_sav_exe = self.fs_sav_exe_var.get() or None

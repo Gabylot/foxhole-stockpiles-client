@@ -12,6 +12,7 @@
   "settings": {
     "title": "Ayarlar",
     "tab": {
+      "keybind": "Kısayol Tuşu",
       "sav": "SAV İzleyici",
       "language": "Dil"
     },
@@ -19,6 +20,14 @@
       "cancel": "İptal",
       "save": "Kaydet",
       "change": "Değiştir"
+    },
+    "keybind": {
+      "title": "SAV İşleme Kısayolu",
+      "label_key": "Tuş:",
+      "hint": "Process SAV'i tetiklemek için tuş kombinasyonuna basın",
+      "no_key_defined": "Tanımlı tuş yok. Değiştirmek için 'Değiştir'e tıklayın",
+      "waiting": "Yeni tuş bekleniyor...",
+      "invalid_key": "Geçersiz tuş algılandı:"
     },
     "sav": {
       "title": "SAV Dosya Yapılandırması",

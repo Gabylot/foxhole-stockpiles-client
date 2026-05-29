@@ -6,6 +6,7 @@ from typing import Any
 
 import ttkbootstrap as tb
 from httpx import Client, Timeout
+from pynput import keyboard
 from ttkbootstrap.constants import (
     BOTH,
     DISABLED,
@@ -24,6 +25,7 @@ from ttkbootstrap.constants import (
 
 from foxhole_stockpiles.core.config import settings
 from foxhole_stockpiles.i18n import get_translator, t
+from foxhole_stockpiles.models.keypress import KeyPress
 from foxhole_stockpiles.ui.settings_window import SettingsWindow
 
 
@@ -57,9 +59,38 @@ class App(tb.Window):  # type: ignore[misc]
         # Initialize translator with configured language
         get_translator(settings.language)
 
+        self._hotkey_listener: keyboard.GlobalHotKeys | None = None
+
+        # Transform the keybind into a hotkey
+        if not settings.keybind.key:
+            self._hotkey = None
+        else:
+            try:
+                k = KeyPress()
+                self._hotkey = k.prepare_for_global_hotkey(settings.keybind.key)
+            except ValueError:
+                self._hotkey = None
+
         self.create_widgets()
 
+        # Start hotkey listener if keybind is set
+        self._start_hotkey_listener()
+
         self.mainloop()
+
+    def _start_hotkey_listener(self) -> None:
+        """Start the global hotkey listener if a hotkey is configured."""
+        if self._hotkey and not self._hotkey_listener:
+            self._hotkey_listener = keyboard.GlobalHotKeys(
+                {self._hotkey: self.command_process_sav}
+            )
+            self._hotkey_listener.start()
+
+    def _stop_hotkey_listener(self) -> None:
+        """Stop the global hotkey listener."""
+        if self._hotkey_listener:
+            self._hotkey_listener.stop()
+            self._hotkey_listener = None
 
     def create_widgets(self) -> None:
         """Create the widgets for the window."""
@@ -116,8 +147,24 @@ class App(tb.Window):  # type: ignore[misc]
             else:
                 self.process_button.configure(state=DISABLED)
 
+            # Update hotkey if keybind changed
+            if settings.keybind.key:
+                try:
+                    k = KeyPress()
+                    self._hotkey = k.prepare_for_global_hotkey(settings.keybind.key)
+                except ValueError:
+                    self._hotkey = None
+            else:
+                self._hotkey = None
+
+            self._stop_hotkey_listener()
+            self._start_hotkey_listener()
+
     def command_process_sav(self) -> None:
         """Parse the SAV file and submit all stockpiles."""
+        if not settings.sav.is_configured():
+            self.message("SAV: Not configured. Set up SAV settings first.")
+            return
         self.message("SAV: Parsing file...")
         threading.Thread(target=self._process_and_submit).start()
 

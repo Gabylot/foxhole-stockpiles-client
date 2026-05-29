@@ -12,6 +12,7 @@
   "settings": {
     "title": "Paramètres",
     "tab": {
+      "keybind": "Raccourci",
       "sav": "Surveillance SAV",
       "language": "Langue"
     },
@@ -19,6 +20,14 @@
       "cancel": "Annuler",
       "save": "Enregistrer",
       "change": "Modifier"
+    },
+    "keybind": {
+      "title": "Raccourci Process SAV",
+      "label_key": "Touche :",
+      "hint": "Appuyez sur la combinaison de touches pour déclencher Process SAV",
+      "no_key_defined": "Aucune touche définie. Cliquez sur 'Modifier'",
+      "waiting": "En attente d'une nouvelle touche...",
+      "invalid_key": "Touche invalide détectée :"
     },
     "sav": {
       "title": "Configuration du fichier SAV",

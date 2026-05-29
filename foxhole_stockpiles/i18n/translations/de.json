@@ -12,6 +12,7 @@
   "settings": {
     "title": "Einstellungen",
     "tab": {
+      "keybind": "Tastenkürzel",
       "sav": "SAV-Überwachung",
       "language": "Sprache"
     },
@@ -19,6 +20,14 @@
       "cancel": "Abbrechen",
       "save": "Speichern",
       "change": "Ändern"
+    },
+    "keybind": {
+      "title": "SAV-verarbeitung Tastenkürzel",
+      "label_key": "Taste:",
+      "hint": "Drücken Sie die Tastenkombination zum Auslösen der SAV-Verarbeitung",
+      "no_key_defined": "Keine Taste definiert. Klicken Sie auf 'Ändern'",
+      "waiting": "Warte auf neue Taste...",
+      "invalid_key": "Ungültige Taste erkannt:"
     },
     "sav": {
       "title": "SAV-Dateikonfiguration",

@@ -10,6 +10,10 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class KeybindSettings(BaseModel):
+    key: str | None = Field(description="Global hotkey to trigger Process SAV", default=None)
+
+
 class SavSettings(BaseModel):
     """Settings for SAV file watcher."""
 
@@ -81,6 +85,7 @@ class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
     language: str = Field(default="en")
+    keybind: KeybindSettings = Field(default_factory=KeybindSettings)
     sav: SavSettings = Field(default_factory=SavSettings)
 
     @classmethod

@@ -12,6 +12,7 @@
   "settings": {
     "title": "Settings",
     "tab": {
+      "keybind": "Hotkey",
       "sav": "SAV Watcher",
       "language": "Language"
     },
@@ -19,6 +20,14 @@
       "cancel": "Cancel",
       "save": "Save",
       "change": "Change"
+    },
+    "keybind": {
+      "title": "Process SAV Hotkey",
+      "label_key": "Key:",
+      "hint": "Press the key combination you want to use for triggering Process SAV",
+      "no_key_defined": "No key defined. Click 'Change' to set a key",
+      "waiting": "Waiting for a new key...",
+      "invalid_key": "Invalid key detected:"
     },
     "sav": {
       "title": "SAV File Configuration",

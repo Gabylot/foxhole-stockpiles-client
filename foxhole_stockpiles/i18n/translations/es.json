@@ -12,6 +12,7 @@
   "settings": {
     "title": "Configuración",
     "tab": {
+      "keybind": "Tecla rápida",
       "sav": "Monitor SAV",
       "language": "Idioma"
     },
@@ -19,6 +20,14 @@
       "cancel": "Cancelar",
       "save": "Guardar",
       "change": "Cambiar"
+    },
+    "keybind": {
+      "title": "Tecla para procesar SAV",
+      "label_key": "Tecla:",
+      "hint": "Presiona la combinación de teclas para activar Process SAV",
+      "no_key_defined": "Sin tecla definida. Haz clic en 'Cambiar'",
+      "waiting": "Esperando nueva tecla...",
+      "invalid_key": "Tecla inválida detectada:"
     },
     "sav": {
       "title": "Configuración del Archivo SAV",
